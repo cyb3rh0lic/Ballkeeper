@@ -33,6 +33,10 @@ public class Notification {
     @JoinColumn(name = "ITEM_ID")
     private Item item;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "TYPE", length = 40, nullable = false)
+    private NotificationType type;
+
     @Column(length = 100, nullable = false)
     private String message;
 
@@ -42,16 +46,25 @@ public class Notification {
     @Column(name = "CREATED_AT", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "IS_READ", nullable = false)
+    private boolean read;   // 기본 false
+
     // 생성 메서드
-    public static Notification createNotification(Reservation reservation, Member member, Item item, String message, String photoUrl) {
+    public static Notification createNotification(Reservation reservation, Member member, Item item, NotificationType type, String message, String photoUrl) {
         Notification notification = new Notification();
         notification.reservation = reservation;
         notification.member = member;
         notification.item = item;
+        notification.type = type;
         notification.message = message;
         notification.photoUrl = photoUrl;
         notification.createdAt = LocalDateTime.now();
+        notification.read = false;
 
         return notification;
+    }
+
+    public void markRead() {
+        this.read = true;
     }
 }

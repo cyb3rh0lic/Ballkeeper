@@ -11,6 +11,7 @@ import capstone.ballkeeper.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 
@@ -22,6 +23,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final MemberRepository memberRepository;
     private final ItemRepository itemRepository;
+    private final ApplicationEventPublisher publisher;
 
     /**
      * 예약 생성
@@ -64,6 +66,7 @@ public class ReservationService {
         // 6) 저장
         reservationRepository.save(reservation);
 
+
         return reservation.getId();
     }
 
@@ -84,4 +87,5 @@ public class ReservationService {
 
         // 아이템 상태 전환은 보통 픽업/반납 시점에 처리하는 것을 권장
     }
+
 }
