@@ -78,6 +78,29 @@ public class ReservationController {
         return ResponseEntity.ok(list.stream().map(ReservationResponse::from).toList());
     }
 
+    /*
+    예약 승인(관리자)
+     */
+    @PatchMapping("/{id}/approve")
+    public ResponseEntity<Void> approve(@PathVariable Long id) {
+        reservationService.approveReservation(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 픽업 처리 */
+    @PatchMapping("/{id}/pickup")
+    public ResponseEntity<Void> pickup(@PathVariable Long id, String pickupPhotoUrl) {
+        reservationService.pickUp(id, pickupPhotoUrl);
+        return ResponseEntity.ok().build();
+    }
+
+    /** 반납 처리 */
+    @PatchMapping("/{id}/return")
+    public ResponseEntity<Void> returnItem(@PathVariable Long id, String returnPhotoUrl) {
+        reservationService.returnItem(id, returnPhotoUrl);
+        return ResponseEntity.ok().build();
+    }
+
     // 잘못된 status 문자열을 400(BAD_REQUEST)으로 처리하기 위해 파싱 유틸 분리
     private ReservationStatus parseStatus(String status) {
         try {
