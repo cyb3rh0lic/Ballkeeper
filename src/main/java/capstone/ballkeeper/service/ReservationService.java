@@ -6,12 +6,14 @@ import capstone.ballkeeper.domain.item.ItemStatus;
 import capstone.ballkeeper.domain.member.Member;
 import capstone.ballkeeper.domain.reservation.Reservation;
 import capstone.ballkeeper.domain.reservation.ReservationStatus;
+import capstone.ballkeeper.event.ReservationCreatedEvent;
 import capstone.ballkeeper.repository.ItemRepository;
 import capstone.ballkeeper.repository.MemberRepository;
 import capstone.ballkeeper.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 
@@ -23,6 +25,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final MemberRepository memberRepository;
     private final ItemRepository itemRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * 예약 생성
@@ -67,6 +70,9 @@ public class ReservationService {
 
         // 저장
         reservationRepository.save(reservation);
+
+        // 이벤트 발행
+        applicationEventPublisher.publishEvent(new ReservationCreatedEvent(reservation.getId()));
 
         return reservation.getId();
     }
@@ -135,4 +141,5 @@ public class ReservationService {
 
         r.getReservationItems().forEach(ri -> ri.getItem().changeStatus(ItemStatus.AVAILABLE));
     }
+
 }
