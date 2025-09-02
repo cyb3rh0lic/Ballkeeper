@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Ballkeeper SSE E2E Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b1220; --panel:#111a2b; --muted:#8aa0c3; --text:#e6eefc; --accent:#67b8ff; --ok:#3ccf91; --err:#ff6b6b;
+    }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    header { padding:16px 20px; border-bottom:1px solid #20304f; background:linear-gradient(180deg,#0c1526,#0a1220); position:sticky; top:0; z-index:1;}
+    h1 { margin:0 0 6px; font-size:18px; }
+    .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    label { font-size:12px; color:var(--muted); }
+    input, select, button, textarea {
+      background:#0e1a30; color:var(--text); border:1px solid #213150; border-radius:8px; padding:8px 10px; outline:none;
+    }
+    input:focus, textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(103,184,255,.15); }
+    button { cursor:pointer; border-color:#2a3e66; background:#133058; }
+    button.primary { background:linear-gradient(180deg,#1e6ee9,#1257bf); border-color:#1f5fbe; }
+    button.warn { background:#5a1b1b; border-color:#7b2a2a; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    main { display:grid; grid-template-columns: 420px 1fr; gap:16px; padding:16px; }
+    .card { background:var(--panel); border:1px solid #20304f; border-radius:14px; padding:14px; }
+    .card h2 { margin:0 0 10px; font-size:15px; color:#cfe0ff; }
+    .grid { display:grid; gap:8px; }
+    .field { display:grid; gap:4px; }
+    .log { height:420px; background:#0b1426; border:1px solid #1a2742; border-radius:10px; padding:10px; overflow:auto; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; }
+    .line { margin:0 0 6px; white-space:pre-wrap; word-break:break-word; }
+    .muted { color:var(--muted); }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    .pill { display:inline-block; padding:2px 6px; border-radius:999px; font-size:11px; border:1px solid #2a3e66; background:#102242; color:#cfe0ff; }
+    .row > .pill { margin-left:auto; }
+    .small { font-size:12px; color:var(--muted); }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Ballkeeper · SSE 구독 & 예약 생성 통합 테스트</h1>
+  <div class="row">
+    <div class="field">
+      <label>서버 Base URL</label>
+      <input id="baseUrl" value="http://localhost:8080" size="28" />
+    </div>
+    <div class="field" style="min-width:220px;">
+      <label>Bearer Token (옵션 · API 호출용)</label>
+      <input id="bearer" placeholder="eyJhbGciOi..." size="32" />
+    </div>
+    <span class="pill" id="statusPill">DISCONNECTED</span>
+  </div>
+</header>
+
+<main>
+  <!-- 좌측 카드들 -->
+  <section class="grid">
+    <div class="card">
+      <h2>1) SSE 구독</h2>
+      <div class="grid">
+        <div class="field">
+          <label>SSE 경로 (기본: /api/notifications/connect)</label>
+          <input id="ssePath" value="/api/notifications/connect" />
+          <span class="small">서버 구현이 `/connect/{userId}` 라면 이 칸에 <code>/api/notifications/connect/</code> 입력 후 아래 “관리자 ID”와 합쳐서 사용합니다.</span>
+        </div>
+        <div class="field">
+          <label>관리자 ID (user_id)</label>
+          <input id="adminId" type="number" placeholder="예: 1000" />
+        </div>
+        <div class="field">
+          <label>토큰을 쿼리로 전달 (옵션, 서버가 허용할 때만)</label>
+          <select id="tokenAsQuery">
+            <option value="no" selected>no</option>
+            <option value="yes">yes (?token=...)</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="btnConnect" class="primary">Connect</button>
+          <button id="btnDisconnect" class="warn" disabled>Disconnect</button>
+        </div>
+        <div class="small">
+          * EventSource는 커스텀 헤더를 지원하지 않습니다. 인증이 필요하면 서버에서 <code>?token=</code> 쿼리를 허용하도록 구성하거나, 동일 오리진/세션 기반으로 테스트하세요.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2) 예약 생성 (POST /api/reservations)</h2>
+      <div class="grid">
+        <div class="field">
+          <label>memberId</label>
+          <input id="memberId" type="number" placeholder="예: 1001" />
+        </div>
+        <div class="field">
+          <label>itemId</label>
+          <input id="itemId" type="number" placeholder="예: 2001" />
+        </div>
+        <div class="field">
+          <label>startTime (ISO-8601)</label>
+          <input id="startTime" placeholder="2025-09-01T14:00:00" />
+        </div>
+        <div class="field">
+          <label>endTime (ISO-8601)</label>
+          <input id="endTime" placeholder="2025-09-01T16:00:00" />
+        </div>
+        <div class="row">
+          <button id="btnFillNow">지금~2시간 자동입력</button>
+          <button id="btnCreate" class="primary">예약 생성</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- 우측 로그 -->
+  <section class="card">
+    <h2>로그</h2>
+    <div id="log" class="log" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+  const el = (id) => document.getElementById(id);
+  const logBox = el('log');
+  const pill = el('statusPill');
+  let es = null;
+
+  function addLog(text, cls='') {
+    const div = document.createElement('div');
+    div.className = `line ${cls}`;
+    const ts = new Date().toLocaleTimeString();
+    div.textContent = `[${ts}] ${text}`;
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function setStatus(status) {
+    pill.textContent = status;
+    if (status === 'CONNECTED') {
+      pill.style.background = '#0e2f57';
+      pill.style.borderColor = '#1f5fbe';
+      pill.style.color = '#cfe0ff';
+    } else {
+      pill.style.background = '#2a1a1a';
+      pill.style.borderColor = '#7b2a2a';
+      pill.style.color = '#ffdede';
+    }
+  }
+
+  function buildSseUrl() {
+    const base = el('baseUrl').value.replace(/\/+$/, '');
+    let path = el('ssePath').value.trim();
+    const adminId = el('adminId').value.trim();
+    const token = el('bearer').value.trim();
+    const tokenAsQuery = el('tokenAsQuery').value === 'yes';
+
+    if (!path.startsWith('/')) path = '/' + path;
+
+    let url = base + path;
+    if (/\/\d+$/.test(url)) {
+      // 이미 /{id} 로 끝남
+    } else {
+      const hasQuery = url.includes('?');
+      if (adminId) {
+        url += hasQuery ? `&memberId=${encodeURIComponent(adminId)}` : `?memberId=${encodeURIComponent(adminId)}`;
+      }
+    }
+
+    if (token && tokenAsQuery) {
+      url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    }
+    return url;
+  }
+
+  function connect() {
+    const url = buildSseUrl();
+    if (!url) return;
+
+    if (es) { es.close(); es = null; }
+
+    addLog(`SSE 연결 시도: ${url}`, 'muted');
+    es = new EventSource(url, { withCredentials: false });
+
+    es.onopen = () => {
+      addLog('SSE [open] 연결됨', 'ok');
+      setStatus('CONNECTED');
+      el('btnConnect').disabled = true;
+      el('btnDisconnect').disabled = false;
+    };
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        addLog(`[message] id=${e.lastEventId || '-'} event=message\n${JSON.stringify(data, null, 2)}`);
+      } catch {
+        addLog(`[message] id=${e.lastEventId || '-'} event=message data=${e.data}`);
+      }
+    };
+    es.addEventListener('reservation-created', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        addLog(`[reservation-created] id=${e.lastEventId || '-'}\n${JSON.stringify(data, null, 2)}`, 'ok');
+      } catch {
+        addLog(`[reservation-created] raw=${e.data}`, 'ok');
+      }
+    });
+    es.onerror = (err) => {
+      addLog('SSE [error] 연결 오류(서버 중지/타임아웃/네트워크). 자동 재시도는 브라우저가 처리합니다.', 'err');
+      setStatus('DISCONNECTED');
+      el('btnConnect').disabled = false;
+      el('btnDisconnect').disabled = true;
+      // 브라우저가 자동 재연결을 시도함. 필요 시 여기서 수동 재시도 로직 추가 가능.
+    };
+  }
+
+  function disconnect() {
+    if (es) {
+      es.close();
+      es = null;
+      addLog('SSE 연결 종료', 'muted');
+      setStatus('DISCONNECTED');
+    }
+    el('btnConnect').disabled = false;
+    el('btnDisconnect').disabled = true;
+  }
+
+  async function createReservation() {
+    const base = el('baseUrl').value.replace(/\/+$/, '');
+    const memberId = Number(el('memberId').value);
+    const itemId = Number(el('itemId').value);
+    const startTime = el('startTime').value.trim();
+    const endTime = el('endTime').value.trim();
+    const token = el('bearer').value.trim();
+
+    if (!memberId || !itemId || !startTime || !endTime) {
+      addLog('필수 입력값 누락: memberId, itemId, startTime, endTime', 'err');
+      return;
+    }
+
+    const url = `${base}/api/reservations`;
+    const body = { memberId, itemId, startTime, endTime };
+
+    addLog(`POST ${url}\n${JSON.stringify(body)}`, 'muted');
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(body)
+      });
+      const text = await res.text();
+      addLog(`응답 ${res.status} ${res.statusText}\n${text}`);
+    } catch (e) {
+      addLog('요청 실패: ' + e, 'err');
+    }
+  }
+
+  function fillNow() {
+    const now = new Date();
+    const end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+
+    const iso = (d) =>
+            `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    el('startTime').value = iso(now);
+    el('endTime').value = iso(end);
+    addLog('startTime/endTime 자동 입력 완료', 'muted');
+  }
+
+  // 이벤트 바인딩
+  el('btnConnect').addEventListener('click', connect);
+  el('btnDisconnect').addEventListener('click', disconnect);
+  el('btnCreate').addEventListener('click', createReservation);
+  el('btnFillNow').addEventListener('click', fillNow);
+
+  // 초기 상태
+  setStatus('DISCONNECTED');
+</script>
+</body>
+</html>
